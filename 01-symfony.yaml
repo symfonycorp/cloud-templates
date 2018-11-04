@@ -1,0 +1,67 @@
+requirements:
+  - type: file_exists
+    value: composer.json
+  - type: has_composer_package
+    value: symfony/symfony
+
+template: |
+    name: {{.Slug}}
+
+    type: php:{{.PhpVersion}}
+
+    runtime:
+        extensions:
+            - apcu
+            - mbstring
+            {{ range $ext := php_extensions -}}
+            {{ if php_extension_available $ext $.PhpVersion -}}
+            - {{ $ext }}
+            {{- end }}
+            {{- end }}
+
+    build:
+        flavor: none
+
+    web:
+        locations:
+            "/":
+                root: "{{.PublicDirectory}}"
+                expires: 1h
+                passthru: "/{{.FrontController}}"
+
+    disk: 2048
+
+    mounts:
+        {{ if file_exists "app/cache" -}}
+        "app/cache": "shared:files/var/cache"
+        {{- else -}}
+        "var/cache": "shared:files/var/cache"
+        {{- end }}
+        {{ if file_exists "app/logs" -}}
+        "app/logs": "shared:files/var/logs"
+        {{- else -}}
+        "var/logs": "shared:files/var/logs"
+        {{- end }}
+
+    hooks:
+        build: |
+            set -x -e
+
+            # remove the development front-controller if present
+            (>&2 rm web/{{.FrontController}}_dev.php)
+
+            SYMFONY_ENV=prod composer install --prefer-dist --optimize-autoloader --classmap-authoritative --no-progress --no-ansi --no-interaction --no-dev
+            (>&2 SYMFONY_ENV=prod bin/console cache:clear --no-warmup)
+            (>&2 SYMFONY_ENV=prod bin/console cache:warmup)
+            # Keep the cache in a persistant directory
+            # If your cache can be readonly, you can skip this step
+            (>&2 mkdir -p tmp/cache && mv var/cache/prod tmp/cache/ && mv var/bootstrap.php.cache tmp/bootstrap.php.cache)
+
+        deploy: |
+            set -x -e
+
+            # "install" cache
+            # If your cache can be readonly, you can skip these steps
+            rm -rf var/cache/prod
+            cp -Rp tmp/bootstrap.php.cache var/bootstrap.php.cache
+            cp -Rp tmp/cache/prod var/cache/

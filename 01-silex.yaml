@@ -1,0 +1,47 @@
+requirements:
+  - type: file_exists
+    value: composer.json
+  - type: has_composer_package
+    value: silex/silex
+
+template: |
+    name: {{.Slug}}
+
+    type: php:{{.PhpVersion}}
+
+    runtime:
+        extensions:
+            - apcu
+            - mbstring
+            {{ range $ext := php_extensions -}}
+            {{ if php_extension_available $ext $.PhpVersion -}}
+            - {{ $ext }}
+            {{- end }}
+            {{- end }}
+
+    build:
+        flavor: none
+
+    web:
+        locations:
+            "/":
+                root: "{{.PublicDirectory}}"
+                expires: 1h
+                passthru: "/{{.FrontController}}"
+
+    disk: 2048
+
+    mounts:
+        '/var': 'shared:files/var'
+
+    hooks:
+        build: |
+            set -x -e
+
+            curl -s https://get.symfony.com/cloud/configurator | (>&2 bash)
+            (>&2 symfony-build)
+
+        deploy: |
+            set -x -e
+
+            (>&2 symfony-deploy)
