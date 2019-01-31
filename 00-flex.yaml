@@ -9,6 +9,13 @@ template: |
 
     type: php:{{.PhpVersion}}
 
+    {{ if file_exists "yarn.lock" }}
+    dependencies:
+        nodejs:
+            yarn: "*"
+
+    {{ end -}}
+
     runtime:
         extensions:
             - apcu
