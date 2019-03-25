@@ -40,14 +40,14 @@ template: |
 
     mounts:
         {{ if file_exists "app/cache" -}}
-        "app/cache": "shared:files/var/cache"
+        "app/cache": { source: local, source_path: "var/cache" }
         {{- else -}}
-        "var/cache": "shared:files/var/cache"
+        "var/cache": { source: local, source_path: "var/cache" }
         {{- end }}
         {{ if file_exists "app/logs" -}}
-        "app/logs": "shared:files/var/logs"
+        "app/logs": { source: local, source_path: "var/logs" }
         {{- else -}}
-        "var/logs": "shared:files/var/logs"
+        "var/logs": { source: local, source_path: "var/logs" }
         {{- end }}
 
     hooks:

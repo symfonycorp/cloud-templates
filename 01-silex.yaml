@@ -39,7 +39,7 @@ template: |
     disk: 2048
 
     mounts:
-        '/var': 'shared:files/var'
+        '/var': { source: local, source_path: var }
 
     hooks:
         build: |
