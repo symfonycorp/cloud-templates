@@ -29,7 +29,7 @@ template: |
                 expires: 1h
                 passthru: "/{{.FrontController}}"
 
-    disk: 2048
+    disk: 512
 
     mounts:
         "/var": { source: local, source_path: var }
