@@ -5,7 +5,7 @@ requirements:
     value: symfony/symfony
 
 template: |
-    name: {{.Slug}}
+    name: app
 
     type: php:{{.PhpVersion}}
 

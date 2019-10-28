@@ -5,7 +5,7 @@ requirements:
     value: silex/silex
 
 template: |
-    name: {{.Slug}}
+    name: app
 
     type: php:{{.PhpVersion}}
 
