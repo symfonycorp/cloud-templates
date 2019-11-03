@@ -13,11 +13,12 @@ template: |
         extensions:
             - apcu
             - mbstring
-            {{ range $ext := php_extensions -}}
-            {{ if php_extension_available $ext $.PhpVersion -}}
+            - sodium
+{{ range $ext := php_extensions -}}
+{{ if php_extension_available $ext $.PhpVersion -}}
             - {{ $ext }}
-            {{- end }}
-            {{- end }}
+{{ end -}}
+{{ end -}}
 
     build:
         flavor: none
