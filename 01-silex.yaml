@@ -46,6 +46,11 @@ template: |
             set -x -e
 
             curl -s https://get.symfony.com/cloud/configurator | (>&2 bash)
+            {{ range $ext := php_extensions -}}
+            {{- if not php_extension_available $ext $.PhpVersion -}}
+            # (>&2 php-ext-install {{ $ext }} X.Y.Z)
+            {{ end -}}
+            {{- end }}
             (>&2 symfony-build)
 
         deploy: |
