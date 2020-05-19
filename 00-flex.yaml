@@ -50,6 +50,7 @@ template: |
             {{- if not php_extension_available $ext $.PhpVersion -}}
             # (>&2 php-ext-install {{ $ext }} X.Y.Z)
             {{ end -}}
+            {{- end }}
             (>&2 symfony-build)
 
         deploy: |
