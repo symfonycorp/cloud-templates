@@ -38,6 +38,14 @@ template: |
 
     disk: 512
 
+    {{ if not (file_exists "app/cache") -}}
+    # These variables are available at build time
+    variables:
+        env:
+            # Cache dir is set at "var/cache" instead of the legacy default "app/cache"
+            SYMFONY_APP_CACHE_DIR: "var/cache"
+    {{- end }}
+
     mounts:
         {{ if file_exists "app/cache" -}}
         "app/cache": { source: local, source_path: "var/cache" }
@@ -54,22 +62,73 @@ template: |
         build: |
             set -x -e
 
-            # Remove the development front-controller if present
-            (>&2 rm {{.PublicDirectory}}/index_dev.php {{.PublicDirectory}}/app_dev.php)
+            curl -s https://get.symfony.com/cloud/configurator | (>&2 bash)
+            {{ range $ext := php_extensions -}}
+            {{- if not (php_extension_available $ext $.PhpVersion) -}}
+            # (>&2 php-ext-install {{ $ext }} X.Y.Z)
+            {{ end -}}
+            {{- end }}
 
-            SYMFONY_ENV=prod composer install --prefer-dist --optimize-autoloader --classmap-authoritative --no-progress --no-ansi --no-interaction --no-dev
-            (>&2 SYMFONY_ENV=prod bin/console cache:clear --no-warmup)
-            (>&2 SYMFONY_ENV=prod bin/console cache:warmup)
-
-            # Keep the cache in a persistent directory
-            # If your cache can be read-only, you can skip this step
-            (>&2 mkdir -p tmp/cache && mv var/cache/prod tmp/cache/ && mv var/bootstrap.php.cache tmp/bootstrap.php.cache)
+            (>&2
+              symfony-build
+              # Keep the cache in a persistent directory if possible to speed up
+              # deployments. *Enable this only if your cache can be built before
+              # deployment and reused each time*.
+              # mkdir -p tmp/cache && mv app/cache/prod tmp/cache/
+            )
 
         deploy: |
             set -x -e
 
-            # "install" cache
-            # If your cache can be read-only, you can skip these steps
-            rm -rf var/cache/prod
-            cp -Rp tmp/bootstrap.php.cache var/bootstrap.php.cache
-            cp -Rp tmp/cache/prod var/cache/
+            (>&2 symfony-deploy)
+
+extra_files:
+  "app/config/parameters_symfonycloud.php": |
+    <?php
+
+    // Don't forget to add the import in your `app/config/config.yml`:
+    // imports:
+    //      - { resource: parameters.yml }
+    // +    - { resource: parameters_symfonycloud.php }
+    //      - { resource: security.yml }
+    //      - { resource: services.yml }
+
+    // Not running in a SymfonyCloud runtime
+    if (!isset($_SERVER['SYMFONY_ENVIRONMENT'])) {
+        return;
+    }
+
+    /*
+      /!\ This file is not evaluated at runtime. This does not replace a proper
+      runtime parameter evaluation usage with Symfony >= 3.4 and DotEnv.
+    */
+
+    $container->setParameter('secret', $_SERVER['APP_SECRET'] ?? $_SERVER['SECRET']);
+    $container->setParameter('kernel.environment', $_SERVER['APP_ENV'] ?? $_SERVER['SYMFONY_ENV']);
+    $container->setParameter('kernel.debug', (bool) ($_SERVER['APP_DEBUG'] ?? $_SERVER['SYMFONY_DEBUG']));
+    $container->setParameter('router.request_context.host', $_SERVER['SYMFONY_APPLICATION_DEFAULT_ROUTE_HOST']);
+    $container->setParameter('router.request_context.scheme', $_SERVER['SYMFONY_APPLICATION_DEFAULT_ROUTE_SCHEME']);
+
+    $envMapping = [
+        // You need to adapt this list to match your application configuration.
+        // Please refer to https://symfony.com/doc/master/cloud/services/intro.html
+        // for environment variable names.
+        /*'database_host' => 'DATABASE_HOST',
+        'database_port' => 'DATABASE_PORT',
+        'database_name' => 'DATABASE_NAME',
+        'database_user' => 'DATABASE_USER',
+        'database_password' => 'DATABASE_PASSWORD',*/
+        'mailer_transport' => 'MAILER_TRANSPORT',
+        'mailer_user' => 'MAILER_USER',
+        'mailer_password' => 'MAILER_PASSWORD',
+        'mailer_host' => 'MAILER_HOST',
+        'mailer_port' => 'MAILER_PORT',
+    ];
+
+    foreach ($envMapping as $parameter => $env) {
+        if (!isset($_SERVER[$env])) {
+            continue;
+        }
+
+        $container->setParameter($parameter, $_SERVER[$env]);
+    }
