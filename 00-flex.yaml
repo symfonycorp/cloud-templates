@@ -10,6 +10,7 @@ template: |
     type: php:{{.PhpVersion}}
 
     runtime:
+        decorate_workers_output: no
         extensions:
             {{ if php_extension_available "apcu" $.PhpVersion -}}
             - apcu
