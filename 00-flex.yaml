@@ -28,8 +28,8 @@ template: |
 
     #variables:
     #    php:
-    #        # uncomment on PHP 7.4+, needs Symfony 4.4.14+, 5.1.6+, or 5.2+
-    #        #opcache.preload: /app/src/.preload.php
+    #        # uncomment on PHP 7.4+
+    #        #opcache.preload: /app/config/preload.php
 
     build:
         flavor: none
