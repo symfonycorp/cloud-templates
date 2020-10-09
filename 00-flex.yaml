@@ -34,6 +34,8 @@ template: |
     build:
         flavor: none
 
+    disk: 512
+
     web:
         locations:
             "/":
@@ -41,7 +43,13 @@ template: |
                 expires: 1h
                 passthru: "/{{.FrontController}}"
 
-    disk: 512
+    {{ if has_composer_package "symfony/messenger" -}}
+    workers:
+        messenger:
+            commands:
+                # Don't forget to update your receiver name(s)
+                start: symfony console --time-limit=3600 --memory-limit=64M messenger:consume async
+    {{- end }}
 
     mounts:
         "/var": { source: local, source_path: var }
