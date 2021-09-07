@@ -1,0 +1,78 @@
+requirements:
+  - type: file_exists
+    value: composer.json
+  - type: has_composer_package
+    value: symfony/flex
+  - type: has_composer_package
+    value: symfonycorp/platformsh-meta
+
+template: |
+    name: {{.Slug}}
+
+    type: php:{{.PhpVersion}}
+
+    runtime:
+        extensions:
+            {{ range $ext := $.PHPExtensions -}}
+            {{- if php_extension_available $ext $.PhpVersion -}}
+            - {{ $ext }}
+            {{ end -}}
+            {{- end }}
+
+    {{ if php_at_least "7.4" -}}
+    variables:
+        php:
+            opcache.preload: /app/config/preload.php
+    {{- end }}
+    build:
+        flavor: none
+
+    disk: 1024
+
+    web:
+        locations:
+            "/":
+                root: "{{.PublicDirectory}}"
+                expires: 1h
+                passthru: "/{{.FrontController}}"
+
+    mounts:
+        "/var": { source: local, source_path: var }
+
+    {{ if $.Services -}}
+    relationships:
+        {{ range $service := $.Services -}}
+        {{ $service.Name }}: "{{ $service.Name }}:{{ $service.Type }}"
+        {{ end -}}
+    {{- end }}
+    hooks:
+        build: |
+            set -x -e
+
+            curl -fs https://get.symfony.com/cloud/configurator | (>&2 bash)
+            {{ range $ext := $.PHPExtensions -}}
+            {{- if not (php_extension_available $ext $.PhpVersion) -}}
+            # (>&2 php-ext-install {{ $ext }} X.Y.Z)
+            {{ end -}}
+            {{- end }}
+            (>&2 symfony-build)
+
+        deploy: |
+            set -x -e
+
+            (>&2 symfony-deploy)
+
+    crons:
+        security-check:
+            # Check that no security issues have been found for PHP packages deployed in production
+            # See https://github.com/fabpot/local-php-security-checker
+            spec: '50 23 * * *'
+            cmd: if [ "$SYMFONY_BRANCH" = "master" ]; then croncape php-security-checker; fi
+
+    {{ if has_composer_package "symfony/messenger" -}}
+    workers:
+        messenger:
+            commands:
+                # Consume "async" messages (as configured in the routing section of config/packages/messenger.yaml)
+                start: symfony console --time-limit=3600 --memory-limit=64M messenger:consume async
+    {{- end }}
