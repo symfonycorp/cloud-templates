@@ -42,6 +42,9 @@ template: |
 
     mounts:
         "/var": { source: local, source_path: var }
+        {{ if file_exists "templates/debug/source_code.html.twig" -}}
+        "/data": { source: local, source_path: "data" }
+        {{- end -}}
 
     {{ if $.Services -}}
     relationships:
