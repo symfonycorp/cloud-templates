@@ -65,15 +65,15 @@ template: |
         build: |
             set -x -e
 
-            curl -fs https://get.symfony.com/cloud/configurator | (>&2 bash)
+            curl -fs https://get.symfony.com/cloud/configurator | bash
             {{ range $ext := php_extensions -}}
             {{- if not (php_extension_available $ext $.PhpVersion) -}}
-            # (>&2 php-ext-install {{ $ext }} X.Y.Z)
+            # php-ext-install {{ $ext }} X.Y.Z
             {{ end -}}
             {{- end }}
-            (>&2 symfony-build)
+            symfony-build
 
         deploy: |
             set -x -e
 
-            (>&2 symfony-deploy)
+            symfony-deploy
