@@ -1,0 +1,97 @@
+requirements:
+  - type: file_exists
+    value: composer.json
+  - type: has_composer_package
+    value: symfony/flex
+  - type: has_composer_package
+    value: symfonycorp/platformsh-meta
+
+template: |
+    routes:
+        "https://{all}/": { type: upstream, upstream: "{{.Slug}}:http" }
+        "http://{all}/": { type: redirect, to: "https://{all}/" }
+
+    services:
+        {{ range $service := $.Services -}}
+        {{ $service.Name }}:
+            type: {{ $service.Type }}{{ if $service.Version }}:{{ $service.Version }}{{ end }}
+
+        {{ end }}
+
+    applications:
+        {{.Slug}}:
+            source:
+                root: "/"
+
+            type: php:{{.PhpVersion}}
+
+            dependencies:
+                php:
+                    composer/composer: "^2"
+
+            runtime:
+                extensions:
+                    {{ range $ext := $.PHPExtensions -}}
+                    {{- if php_extension_available $ext $.PhpVersion -}}
+                    - {{ $ext }}
+                    {{ end -}}
+                    {{- end }}
+
+            {{ if php_at_least "7.4" -}}
+            variables:
+                php:
+                    opcache.preload: config/preload.php
+            {{- end }}
+            build:
+                flavor: none
+
+            web:
+                locations:
+                    "/":
+                        root: "{{.PublicDirectory}}"
+                        expires: 1h
+                        passthru: "/{{.FrontController}}"
+
+            mounts:
+                "/var": { source: local, source_path: var }
+                {{ if file_exists "templates/debug/source_code.html.twig" -}}
+                "/data": { source: local, source_path: "data" }
+                {{- end }}
+
+            {{ if $.Services -}}
+            relationships:
+                {{ range $service := $.Services -}}
+                {{ $service.Name }}: "{{ $service.Name }}:{{ $service.Type }}"
+                {{ end -}}
+            {{- end }}
+            hooks:
+                build: |
+                    set -x -e
+
+                    curl -fs https://get.symfony.com/cloud/configurator | bash
+                    {{ range $ext := $.PHPExtensions -}}
+                    {{- if not (php_extension_available $ext $.PhpVersion) -}}
+                    # php-ext-install {{ $ext }} X.Y.Z
+                    {{ end -}}
+                    {{- end }}
+                    NODE_VERSION=18 symfony-build
+
+                deploy: |
+                    set -x -e
+
+                    symfony-deploy
+
+            crons:
+                security-check:
+                    # Check that no security issues have been found for PHP packages deployed in production
+                    # See https://github.com/fabpot/local-php-security-checker
+                    spec: '50 23 * * *'
+                    cmd: if [ "$PLATFORM_ENVIRONMENT_TYPE" = "production" ]; then croncape php-security-checker; fi
+
+            {{ if has_composer_package "symfony/messenger" -}}
+            workers:
+                messenger:
+                    commands:
+                        # Consume "async" messages (as configured in the routing section of config/packages/messenger.yaml)
+                        start: symfony console --time-limit=3600 --memory-limit=64M messenger:consume async
+            {{- end }}
