@@ -11,7 +11,7 @@ template: |
         "https://{all}/": { type: upstream, upstream: "{{.Slug}}:http" }
         "http://{all}/": { type: redirect, to: "https://{all}/" }
 
-    services:
+    services: {{ if not $.Services -}}{}{{ end }}
         {{ range $service := $.Services -}}
         {{ $service.Name }}:
             type: {{ $service.Type }}{{ if $service.Version }}:{{ $service.Version }}{{ end }}
