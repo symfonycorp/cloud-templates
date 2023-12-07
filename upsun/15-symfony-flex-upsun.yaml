@@ -3,8 +3,6 @@ requirements:
     value: composer.json
   - type: has_composer_package
     value: symfony/flex
-  - type: has_composer_package
-    value: symfonycorp/platformsh-meta
 
 template: |
     routes:
