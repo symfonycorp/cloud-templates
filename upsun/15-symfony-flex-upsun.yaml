@@ -47,7 +47,8 @@ template: |
                         passthru: "/{{.FrontController}}"
 
             mounts:
-                "/var": { source: storage, source_path: var }
+                "/var/cache": { source: instance, source_path: var/cache }
+                "/var/cache/prod/pools/app": { source: storage, source_path: var/cache/prod/pools/app }
                 {{ if file_exists "templates/debug/source_code.html.twig" -}}
                 "/data": { source: storage, source_path: "data" }
                 {{- end }}
@@ -68,7 +69,7 @@ template: |
                     # php-ext-install {{ $ext }} X.Y.Z
                     {{ end -}}
                     {{- end }}
-                    NODE_VERSION=18 symfony-build
+                    NODE_VERSION=22 symfony-build
 
                 deploy: |
                     set -x -e
