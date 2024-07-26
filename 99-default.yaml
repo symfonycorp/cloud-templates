@@ -28,3 +28,8 @@ template: |
                 expires: 10m
 
     disk: 256
+
+    crons:
+        clean-expired-sessions:
+            spec: '17,47 * * * *'
+            cmd: [ -x /usr/lib/php/sessionclean ] && /usr/lib/php/sessionclean
