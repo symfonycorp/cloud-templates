@@ -11,16 +11,7 @@ template: |
 
     runtime:
         extensions:
-            {{ if php_extension_available "apcu" $.PhpVersion -}}
-            - apcu
-            {{ end -}}
-            {{- if php_extension_available "mbstring" $.PhpVersion -}}
-            - mbstring
-            {{ end -}}
-            {{- if php_extension_available "sodium" $.PhpVersion -}}
-            - sodium
-            {{ end -}}
-            {{ range $ext := php_extensions -}}
+            {{ range $ext := $.PHPExtensions -}}
             {{- if php_extension_available $ext $.PhpVersion -}}
             - {{ $ext }}
             {{ end -}}
@@ -58,12 +49,18 @@ template: |
         "var/logs": { source: local, source_path: "var/logs" }
         {{- end }}
 
+    {{ if $.Services -}}
+    relationships:
+        {{ range $service := $.Services -}}
+        {{ $service.Name }}: "{{ $service.Name }}:{{ $service.Type }}"
+        {{ end -}}
+    {{- end }}
     hooks:
         build: |
             set -x -e
 
             curl -fs https://get.symfony.com/cloud/configurator | bash
-            {{ range $ext := php_extensions -}}
+            {{ range $ext := $.PHPExtensions -}}
             {{- if not (php_extension_available $ext $.PhpVersion) -}}
             # php-ext-install {{ $ext }} X.Y.Z
             {{ end -}}
