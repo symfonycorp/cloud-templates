@@ -69,7 +69,7 @@ template: |
             {{ end -}}
             {{- end }}
 
-            NODE_VERSION=18 symfony-build
+            NODE_VERSION=22 symfony-build
             # Keep the cache in a persistent directory if possible to speed up
             # deployments. *Enable this only if your cache can be built before
             # deployment and reused each time*.

@@ -74,7 +74,7 @@ template: |
             # php-ext-install {{ $ext }} X.Y.Z
             {{ end -}}
             {{- end }}
-            NODE_VERSION=18 symfony-build
+            NODE_VERSION=22 symfony-build
 
         deploy: |
             set -x -e
