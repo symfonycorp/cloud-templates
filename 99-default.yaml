@@ -16,6 +16,8 @@ template: |
         base_memory: 64
         memory_ratio: 128
 
+    disk: 1024
+
     web:
         commands:
             start: sleep
@@ -26,8 +28,6 @@ template: |
                     - "index.html"
                 scripts: false
                 expires: 10m
-
-    disk: 256
 
     crons:
         clean-expired-sessions:
