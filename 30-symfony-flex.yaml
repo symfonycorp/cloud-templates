@@ -80,3 +80,8 @@ template: |
             set -x -e
 
             symfony-deploy
+
+    crons:
+        clean-expired-sessions:
+            spec: '17,47 * * * *'
+            cmd: croncape php-session-clean
