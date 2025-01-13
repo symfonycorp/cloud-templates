@@ -29,14 +29,14 @@ template: |
     build:
         flavor: none
 
+    disk: 1024
+
     web:
         locations:
             "/":
                 root: "{{.PublicDirectory}}"
                 expires: 1h
                 passthru: "/{{.FrontController}}"
-
-    disk: 512
 
     {{ if not (file_exists "app/cache") -}}
     # These variables are available at build time
@@ -70,15 +70,11 @@ template: |
             {{- end }}
 
             NODE_VERSION=22 symfony-build
-            # Keep the cache in a persistent directory if possible to speed up
-            # deployments. *Enable this only if your cache can be built before
-            # deployment and reused each time*.
-            # mkdir -p tmp/cache && mv app/cache/prod tmp/cache/
 
         deploy: |
             set -x -e
 
-            (>&2 symfony-deploy)
+            symfony-deploy
 
     crons:
         security-check:
