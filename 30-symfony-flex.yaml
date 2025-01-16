@@ -11,26 +11,17 @@ template: |
 
     runtime:
         extensions:
-            {{ if php_extension_available "apcu" $.PhpVersion -}}
-            - apcu
-            {{ end -}}
-            {{- if php_extension_available "mbstring" $.PhpVersion -}}
-            - mbstring
-            {{ end -}}
-            {{- if php_extension_available "sodium" $.PhpVersion -}}
-            - sodium
-            {{ end -}}
-            {{ range $ext := php_extensions -}}
+            {{ range $ext := $.PHPExtensions -}}
             {{- if php_extension_available $ext $.PhpVersion -}}
             - {{ $ext }}
             {{ end -}}
             {{- end }}
 
-    #variables:
-    #    php:
-    #        # uncomment on PHP 7.4+
-    #        #opcache.preload: config/preload.php
-
+    {{ if php_at_least "7.4" -}}
+    variables:
+        php:
+            opcache.preload: config/preload.php
+    {{- end }}
     build:
         flavor: none
 
@@ -49,12 +40,18 @@ template: |
         "/data": { source: local, source_path: "data" }
         {{- end }}
 
+    {{ if $.Services -}}
+    relationships:
+        {{ range $service := $.Services -}}
+        {{ $service.Name }}: "{{ $service.Name }}:{{ $service.Type }}"
+        {{ end -}}
+    {{- end }}
     hooks:
         build: |
             set -x -e
 
             curl -fs https://get.symfony.com/cloud/configurator | bash
-            {{ range $ext := php_extensions -}}
+            {{ range $ext := $.PHPExtensions -}}
             {{- if not (php_extension_available $ext $.PhpVersion) -}}
             # php-ext-install {{ $ext }} X.Y.Z
             {{ end -}}
