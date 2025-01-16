@@ -47,8 +47,7 @@ template: |
                         passthru: "/{{.FrontController}}"
 
             mounts:
-                "/var/cache": { source: instance, source_path: var/cache }
-                "/var/cache/prod/pools/app": { source: storage, source_path: var/cache/prod/pools/app }
+                "/var": { source: storage, source_path: var }
                 {{ if file_exists "templates/debug/source_code.html.twig" -}}
                 "/data": { source: storage, source_path: "data" }
                 {{- end }}
