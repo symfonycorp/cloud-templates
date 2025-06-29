@@ -11,10 +11,6 @@ template: |
 
     type: php:{{.PhpVersion}}
 
-    dependencies:
-        php:
-            composer/composer: "^2"
-
     runtime:
         extensions:
             {{ range $ext := $.PHPExtensions -}}
