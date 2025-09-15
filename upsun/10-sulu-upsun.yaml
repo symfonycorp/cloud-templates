@@ -1,0 +1,206 @@
+requirements:
+  - type: file_exists
+    value: composer.json
+  - type: has_composer_package
+    value: sulu/sulu
+
+template: |
+    {{- $varnishServiceName := "" -}}
+    {{- $hasRedisSession := false -}}
+    {{- range $service := $.Services -}}
+        {{- if eq $service.Type "varnish" -}}
+            {{- $varnishServiceName = $service.Name -}}
+        {{- end -}}
+        {{- if eq $service.Name "redissession" -}}
+            {{- $hasRedisSession = true -}}
+        {{- end -}}
+    {{- end -}}
+    routes:
+        {{- if $varnishServiceName }}
+        "https://{all}/admin": { type: upstream, upstream: "{{.Slug}}:http", cache: { enabled: false } }
+        "https://{all}/": { type: upstream, upstream: "{{ $varnishServiceName }}:http", cache: { enabled: false } }
+        {{- else }}
+        "https://{all}/": { type: upstream, upstream: "{{.Slug}}:http", cache: { enabled: false } }
+        {{- end }}
+        "http://{all}/": { type: redirect, to: "https://{all}/" }
+
+    services: {{- if not $.Services }} {}{{ end }}
+        {{- range $service := $.Services }}
+        {{ $service.Name }}:
+            type: {{ $service.Type }}{{ if $service.Version }}:{{ $service.Version }}{{ end }}
+            {{- if eq $service.Type "varnish" }}
+            relationships:
+                application: "{{$.Slug}}:http"
+            configuration:
+                vcl: !include
+                    type: string
+                    path: varnish.vcl
+            {{- end }}
+        {{- end }}
+
+    applications:
+        {{.Slug}}:
+            source:
+                root: "/"
+
+            type: php:{{.PhpVersion}}
+
+            runtime:
+                extensions:
+                    {{- range $ext := $.PHPExtensions }}
+                    {{- if php_extension_available $ext $.PhpVersion }}
+                    - {{ $ext }}
+                    {{- end }}
+                    {{- end }}
+
+            variables:
+                php:
+                    {{- if php_at_least "7.4" }}
+                    opcache.preload: config/preload.php
+                    {{- end }}
+                    {{- if $hasRedisSession }}
+                    session.save_handler: redis
+                    session.save_path: "tcp://${REDISSESSION_HOST}:${REDISSESSION_PORT}"
+                    {{- end }}
+
+            build:
+                flavor: none
+
+            web:
+                locations:
+                    "/":
+                        root: "{{.PublicDirectory}}"
+                        passthru: "/{{.FrontController}}"
+                    "/uploads":
+                        root: "{{.PublicDirectory}}"
+                        passthru: "/{{.FrontController}}"
+                        expires: 30d
+                        scripts: false
+                        allow: true
+
+            mounts:
+                "/var/cache": { source: instance, source_path: var/cache }
+                "/var/cache/common/prod/pools/app": { source: storage, source_path: var/cache/common/prod/pools/app }
+                "/var/storage": { source: storage, source_path: var/storage }
+                "/var/indexes": { source: storage, source_path: var/indexes }
+                "/public/uploads": { source: storage, source_path: public/uploads }
+
+            {{ if $.Services -}}
+            relationships:
+                {{- range $service := $.Services }}
+                {{- if ne $service.Type "varnish" }}
+                {{ $service.Name }}: "{{ $service.Name }}:{{ with $service.Endpoint }}{{ . }}{{ else }}{{ $service.Type }}{{ end }}"
+                {{- end }}
+                {{- end }}
+            {{- end }}
+  
+            hooks:
+                build: |
+                    set -x -e
+
+                    curl -fs https://get.symfony.com/cloud/configurator | bash
+                    {{ range $ext := $.PHPExtensions -}}
+                    {{- if not (php_extension_available $ext $.PhpVersion) -}}
+                    # php-ext-install {{ $ext }} X.Y.Z
+                    {{ end -}}
+                    {{- end }}
+                    NODE_VERSION=22 symfony-build
+
+                deploy: |
+                    set -x -e
+
+                    symfony-deploy
+
+            crons:
+                security-check:
+                    # Check that no security issues have been found for PHP packages deployed in production
+                    spec: '50 23 * * *'
+                    cmd: if [ "$PLATFORM_ENVIRONMENT_TYPE" = "production" ]; then croncape COMPOSER_ROOT_VERSION=1.0.0 COMPOSER_AUDIT_ABANDONED=ignore composer audit --no-cache; fi
+                clean-expired-sessions:
+                    spec: '17,47 * * * *'
+                    cmd: croncape php-session-clean
+
+            {{ if has_composer_package "symfony/messenger" -}}
+            workers:
+                messenger:
+                    commands:
+                        # Consume "async" messages (as configured in the routing section of config/packages/messenger.yaml)
+                        start: symfony console --time-limit=3600 --memory-limit=64M messenger:consume async
+            {{- end }}
+
+extra_files:
+  ".upsun/varnish.vcl": |
+    # Varnish configuration for Sulu CMS on Upsun
+    # This configuration handles cache invalidation and Sulu-specific requirements
+
+    import std;
+    import xkey;
+
+    acl invalidators {
+        "localhost";
+        # TODO add outbound IPs for the your region
+    }
+
+    sub vcl_recv {
+        # Define the backend
+        set req.backend_hint = application.backend();
+
+        if (req.method == "PURGE") {
+            if (!std.ip(req.http.X-Client-IP, "0.0.0.0") ~ invalidators) {
+                return (synth(405, "Not allowed"));
+            }
+
+            return (purge);
+        }
+
+        if (req.method == "PURGEKEYS") {
+            if (!std.ip(req.http.X-Client-IP, "0.0.0.0") ~ invalidators) {
+                return (synth(405, "Not allowed"));
+            }
+
+            # If neither of the headers are provided we return 400 to simplify detecting wrong configuration
+            if (!req.http.xkey-purge && !req.http.xkey-softpurge) {
+                return (synth(400, "Neither header XKey-Purge or XKey-SoftPurge set"));
+            }
+
+            # Based on provided header invalidate (purge) and/or expire (softpurge) the tagged content
+            set req.http.n-gone = 0;
+            set req.http.n-softgone = 0;
+            if (req.http.xkey-purge) {
+                set req.http.n-gone = xkey.purge(req.http.xkey-purge);
+            }
+
+            if (req.http.xkey-softpurge) {
+                set req.http.n-softgone = xkey.softpurge(req.http.xkey-softpurge);
+            }
+
+            return (synth(200, "Purged " + req.http.n-gone + " objects, expired " + req.http.n-softgone + " objects"));
+        }
+    }
+
+    sub vcl_backend_response {
+        # Set grace period
+        set beresp.grace = 2m;
+        set beresp.keep = 8m;
+  
+        if (beresp.http.X-Reverse-Proxy-TTL) {
+            set beresp.ttl = std.duration(beresp.http.X-Reverse-Proxy-TTL + "s", 0s);
+        }
+    }
+
+    sub vcl_deliver {
+        # Add debug headers in development
+        if (resp.http.X-Cache-Debug) {
+            if (obj.hits > 0) {
+                set resp.http.X-Cache = "HIT";
+            } else {
+                set resp.http.X-Cache = "MISS";
+            }
+        }
+
+        if (!resp.http.X-Cache-Debug) {
+            # Remove tag headers when delivering to non debug client
+            unset resp.http.xkey;
+            unset resp.http.X-Reverse-Proxy-TTL;
+        }
+    }
