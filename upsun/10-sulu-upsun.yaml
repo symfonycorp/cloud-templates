@@ -92,7 +92,8 @@ template: |
                 {{ $service.Name }}: "{{ $service.Name }}:{{ with $service.Endpoint }}{{ . }}{{ else }}{{ $service.Type }}{{ end }}"
                 {{- end }}
                 {{- end }}
-            {{- end }}
+  
+            {{ end -}}
   
             hooks:
                 build: |
@@ -130,7 +131,7 @@ template: |
 
 extra_files:
   ".upsun/varnish.vcl": |
-    # Varnish configuration for Sulu CMS on Upsun
+    # Varnish configuration for Sulu CMS on upsun
     # This configuration handles cache invalidation and Sulu-specific requirements
 
     import std;

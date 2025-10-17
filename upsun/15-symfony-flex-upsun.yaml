@@ -9,12 +9,11 @@ template: |
         "https://{all}/": { type: upstream, upstream: "{{.Slug}}:http" }
         "http://{all}/": { type: redirect, to: "https://{all}/" }
 
-    services: {{ if not $.Services -}}{}{{ end }}
-        {{ range $service := $.Services -}}
+    services: {{- if not $.Services }} {}{{ end }}
+        {{- range $service := $.Services }}
         {{ $service.Name }}:
             type: {{ $service.Type }}{{ if $service.Version }}:{{ $service.Version }}{{ end }}
-
-        {{ end }}
+        {{- end }}
 
     applications:
         {{.Slug}}:
@@ -25,17 +24,19 @@ template: |
 
             runtime:
                 extensions:
-                    {{ range $ext := $.PHPExtensions -}}
-                    {{- if php_extension_available $ext $.PhpVersion -}}
+                    {{- range $ext := $.PHPExtensions }}
+                    {{- if php_extension_available $ext $.PhpVersion }}
                     - {{ $ext }}
-                    {{ end -}}
+                    {{- end }}
                     {{- end }}
 
             {{ if php_at_least "7.4" -}}
             variables:
                 php:
                     opcache.preload: config/preload.php
-            {{- end }}
+  
+            {{ end -}}
+
             build:
                 flavor: none
 
@@ -55,10 +56,12 @@ template: |
 
             {{ if $.Services -}}
             relationships:
-                {{ range $service := $.Services -}}
+                {{- range $service := $.Services }}
                 {{ $service.Name }}: "{{ $service.Name }}:{{ $service.Type }}"
-                {{ end -}}
-            {{- end }}
+                {{- end }}
+  
+            {{ end -}}
+
             hooks:
                 build: |
                     set -x -e
