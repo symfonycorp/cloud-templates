@@ -80,7 +80,7 @@ template: |
 
             mounts:
                 "/var/cache": { source: instance, source_path: var/cache }
-                "/var/cache/common/prod/pools/app": { source: storage, source_path: var/cache/common/prod/pools/app }
+                "/var/share": { source: storage, source_path: var/share }
                 "/var/storage": { source: storage, source_path: var/storage }
                 "/var/indexes": { source: storage, source_path: var/indexes }
                 "/public/uploads": { source: storage, source_path: public/uploads }
