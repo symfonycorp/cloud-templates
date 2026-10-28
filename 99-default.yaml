@@ -8,8 +8,8 @@ template: |
     build:
         flavor: none
 
-    # Static website usually don't require much ressources. See
-    # https://symfony.com/doc/current/cloud/cookbooks/resources_allocation.html
+    # Static websites usually don't require many resources. See
+    # https://fixed.docs.upsun.com/create-apps/flexible-resources.html
     # for more information
     size: XS
     resources:
