@@ -113,7 +113,7 @@ extra_files:
 
     $envMapping = [
         // You need to adapt this list to match your application configuration.
-        // Please refer to https://symfony.com/doc/master/cloud/services/intro.html
+        // Please refer to https://fixed.docs.upsun.com/guides/symfony/environment-variables.html#service-environment-variables
         // for environment variable names.
         /*'database_host' => 'DATABASE_HOST',
         'database_port' => 'DATABASE_PORT',
