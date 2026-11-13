@@ -35,7 +35,8 @@ template: |
                 passthru: "/{{.FrontController}}"
 
     mounts:
-        "/var/cache": { source: local, source_path: var/cache }
+        "/var/cache": { source: {{ if has_composer_package "symfony/framework-bundle:>=7.4" }}tmp{{ else }}local{{ end }}, source_path: var/cache }
+        "/var/share": { source: local, source_path: var/share }
         {{ if file_exists "templates/debug/source_code.html.twig" -}}
         "/data": { source: local, source_path: "data" }
         {{- end }}

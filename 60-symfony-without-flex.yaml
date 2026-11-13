@@ -43,6 +43,7 @@ template: |
         {{- else -}}
         "var/cache": { source: local, source_path: "var/cache" }
         {{- end }}
+        "/var/share": { source: local, source_path: var/share }
         {{ if file_exists "app/logs" -}}
         "app/logs": { source: local, source_path: "var/logs" }
         {{- else -}}
